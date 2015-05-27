@@ -15,10 +15,36 @@ import edu.erau.albanoj2.lustre.recovery.distributed.metadata.Metadata;
 import edu.erau.albanoj2.lustre.recovery.distributed.test.helper.HappyPathMetadata;
 import edu.erau.albanoj2.lustre.recovery.distributed.test.helper.HappyPathObjectFileList;
 
+/**
+ * Test cases for the Partial Striping Component (PSC). The test cases 
+ * containing in this test fixture are based on the PSC algorithm described in 
+ * Listing 1 and use the example data described in section 2. The "happy path" 
+ * is extracted from the distributed solution described in section 4 (a use case
+ * is not provided in the text of the paper, but the description of the 
+ * requirements that the algorithm in Listing 1 must fulfill can be used to 
+ * create such a use case).
+ * 
+ * @author Justin Albano
+ */
 public class PscTest {
+	
+	/***************************************************************************
+	 * Attributes
+	 **************************************************************************/
 
+	/**
+	 * The Partial Striping Component under test.
+	 */
 	private Psc psc;
+	
+	/**
+	 * The metadata used in the happy path test cases.
+	 */
 	private Metadata happyPathMetadata;
+	
+	/**
+	 * The list of object files used in the happy path test cases.
+	 */
 	private List<ObjectFile> happyPathObjectFiles;
 
 	@Before
@@ -48,42 +74,42 @@ public class PscTest {
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectZeroStripeZero () {
-		Assert.assertEquals("AAAAA", this.stripeDataExtractionHelper(0, 0));
+		Assert.assertEquals("AAAAA", this.happyPathStripeDataExtractionHelper(0, 0));
 	}
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectZeroStripeThree () {
-		Assert.assertEquals("DDDDD", this.stripeDataExtractionHelper(0, 3));
+		Assert.assertEquals("DDDDD", this.happyPathStripeDataExtractionHelper(0, 3));
 	}
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectZeroStripeSix () {
-		Assert.assertEquals("GGGGG", this.stripeDataExtractionHelper(0, 6));
+		Assert.assertEquals("GGGGG", this.happyPathStripeDataExtractionHelper(0, 6));
 	}
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectOneStripeOne () {
-		Assert.assertEquals("BBBBB", this.stripeDataExtractionHelper(1, 1));
+		Assert.assertEquals("BBBBB", this.happyPathStripeDataExtractionHelper(1, 1));
 	}
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectOneStripeFour () {
-		Assert.assertEquals("EEEEE", this.stripeDataExtractionHelper(1, 4));
+		Assert.assertEquals("EEEEE", this.happyPathStripeDataExtractionHelper(1, 4));
 	}
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectOneStripeSeven () {
-		Assert.assertEquals("HHHHH", this.stripeDataExtractionHelper(1, 7));
+		Assert.assertEquals("HHHHH", this.happyPathStripeDataExtractionHelper(1, 7));
 	}
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectTwoStripeTwo () {
-		Assert.assertEquals("CCCCC", this.stripeDataExtractionHelper(2, 2));
+		Assert.assertEquals("CCCCC", this.happyPathStripeDataExtractionHelper(2, 2));
 	}
 	
 	@Test
 	public void testGetStripesCorrectDataForObjectTwoStripeFive () {
-		Assert.assertEquals("FFFFF", this.stripeDataExtractionHelper(2, 5));
+		Assert.assertEquals("FFFFF", this.happyPathStripeDataExtractionHelper(2, 5));
 	}
 	
 	/**
@@ -101,17 +127,17 @@ public class PscTest {
 	 */
 	
 	@Test
-	public void testGetStripesCorrectNumberOfStripesForObjectZero () {
+	public void testGetStripesEnsureCorrectNumberOfStripesForObjectZero () {
 		Assert.assertEquals(3, this.getStripeCountForObjectHelper(0), 3);
 	}
 	
 	@Test
-	public void testGetStripesCorrectNumberOfStripesForObjectOne () {
+	public void testGetStripesEnsureCorrectNumberOfStripesForObjectOne () {
 		Assert.assertEquals(3, this.getStripeCountForObjectHelper(1), 3);
 	}
 	
 	@Test
-	public void testGetStripesCorrectNumberOfStripesForObjectTwo () {
+	public void testGetStripesEnsureCorrectNumberOfStripesForObjectTwo () {
 		Assert.assertEquals(3, this.getStripeCountForObjectHelper(0), 2);
 	}
 	
@@ -120,13 +146,32 @@ public class PscTest {
 	 **************************************************************************/
 
 	@Test
-	public void testGetStripesWithStripeSizeOfZeroReturnsEmptyStripeMap () {
+	public void testGetStripesWithStripeSizeOfZeroEnsureEmptyStripeMap () {
 		Assert.assertTrue(psc.getStripes(0, 0, null, 0, 10).isEmpty());
 	}
 	
 	@Test
-	public void testGetStripesWithFileSizeOfZeroReturnsEmptyStripeMap () {
+	public void testGetStripesWithFileSizeOfZeroEnsureEmptyStripeMap () {
 		Assert.assertTrue(psc.getStripes(0, 0, null, 10, 0).isEmpty());
+	}
+	
+	/**
+	 * Tests the functionality of the get_stripes algorithm to cope with file 
+	 * sizes that are not stripe-size aligned (file sizes that are not an 
+	 * integer multiple of the stripe size). In this test, a stripe size of 5 
+	 * bytes is used with a file size of 39 bytes (not stripe-size aligned), and
+	 * the functionality of the algorithm is tested to ensure that only 4 bytes
+	 * are read from the last stripe.
+	 */
+	@Test
+	public void testGetStripesLastStripeHasLessDataThanStripeSizeEnsureCorrectStripeData () throws IOException {
+	
+		Assert.assertEquals("HHHH", this.stripeDataExtractionHelper(new Metadata(
+				this.happyPathMetadata).setFileSize(39),
+				this.happyPathObjectFiles,
+				1, 7
+			)
+		);
 	}
 	
 	/***************************************************************************
@@ -158,16 +203,43 @@ public class PscTest {
 		return stripes.size();
 	}
 	
-	public String stripeDataExtractionHelper (int objectId, int stripeId) {
+	/**
+	 * Extracts the stripe data, in string form, for the object and stripe at 
+	 * the supplied object index and stripe index, respectively.
+	 * 
+	 * @param metadata
+	 * 		The metadata for the file.
+	 * @param objectFileList
+	 * 		The list of object files for the file.
+	 * @param objectId
+	 * 		The index of the object to extract the stripe data from.
+	 * @param stripeId
+	 * 		The index of the stripe from the object at the supplied object index
+	 * 		to extract the stripe data from.
+	 * 
+	 * @return
+	 * 		The stripe data, in string form, for the object and stripe at the 
+	 * 		supplied object and stripe indices, respectively.
+	 */
+	public String stripeDataExtractionHelper (Metadata metadata, List<ObjectFile> objectFileList, int objectId, int stripeId) {
 		
 		// Obtain the stripes from the PSC
 		Map<Integer, StripeData> stripes = this.psc.getStripes(
 				objectId, 
-				this.happyPathMetadata.getStripeCount(), 
-				this.happyPathObjectFiles.get(objectId), 
-				this.happyPathMetadata.getStripeSize(), 
-				this.happyPathMetadata.getFileSize());
+				metadata.getStripeCount(), 
+				objectFileList.get(objectId), 
+				metadata.getStripeSize(), 
+				metadata.getFileSize());
 		
 		return stripes.get(stripeId).toString();		
+	}
+	
+	/**
+	 * @return
+	 * 		Obtains the stripe data for the happy path objects at the supplied 
+	 * 		object and stripe indices.
+	 */
+	public String happyPathStripeDataExtractionHelper (int objectId, int stripeId) {
+		return this.stripeDataExtractionHelper(this.happyPathMetadata, this.happyPathObjectFiles, objectId, stripeId);
 	}
 }

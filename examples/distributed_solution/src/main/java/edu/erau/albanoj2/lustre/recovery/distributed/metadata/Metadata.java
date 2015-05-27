@@ -13,6 +13,12 @@ public class Metadata {
 		this.objectOstMappings = new ArrayList<>();
 	}
 	
+	public Metadata (Metadata other) {
+		this.objectOstMappings = new ArrayList<>(other.getObjectOstMappings());
+		this.stripeSize = other.getStripeSize();
+		this.fileSize = other.getFileSize();
+	}
+	
 	public Metadata addObjectMapping (ObjectOstMapping mapping) {
 		this.objectOstMappings.add(mapping);
 		return this;
@@ -38,5 +44,9 @@ public class Metadata {
 	public Metadata setFileSize (int fileSize) {
 		this.fileSize = fileSize;
 		return this;
+	}
+
+	public List<ObjectOstMapping> getObjectOstMappings() {
+		return objectOstMappings;
 	}
 }
